@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BBMA AI Screenshot Analyzer — សាកល្បងវិភាគក្រាហ្វ</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Khmer:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans Khmer', system-ui, -apple-system, sans-serif;
+    }
+    .drop-zone-active {
+      border-color: #38bdf8 !important;
+      background-color: rgba(56, 189, 248, 0.08) !important;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-sky-500/30 selection:text-sky-200">
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-4 right-4 z-50 hidden items-center gap-2.5 px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-sm text-slate-100 shadow-xl transition-all duration-200">
+    <i data-lucide="info" class="w-4 h-4 text-sky-400 shrink-0"></i>
+    <span id="toastText"></span>
+  </div>
+
+  <!-- Top Header -->
+  <header class="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-4 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+          <i data-lucide="candlestick-chart" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-white tracking-tight">BBMA AI Screenshot Bot</h1>
+          <p class="text-xs text-slate-400">សាកល្បងបញ្ចូល Screenshot ក្រាហ្វ + System Prompt ដើម្បីគណនា Entry / SL / TP</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span id="tgStatusBadge" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-slate-800/80 text-slate-300 border border-slate-700"><i data-lucide="send" class="w-3 h-3 text-sky-400"></i><span id="tgStatusText">Web Mode</span></span>
+        <button id="btnLoadDemo" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 transition cursor-pointer">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+          <span>ផ្ទុកឧទាហរណ៍គំរូ (Demo)</span>
+        </button>
+        <button id="btnResetAll" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-slate-800/60 hover:bg-slate-800 text-slate-300 border border-slate-700/70 transition cursor-pointer">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>សម្អាត</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Left Column: Screenshot Upload + API Mode + System Prompt -->
+    <div class="lg:col-span-7 space-y-5">
+
+      <!-- Step 1: Upload Screenshots (H4, H1, M15) -->
+      <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-sky-500/15 text-sky-400 text-xs font-bold flex items-center justify-center border border-sky-500/30">1</span>
+            <h2 class="text-sm sm:text-base font-semibold text-white">បញ្ចូលរូបភាព Screenshot (Multi-Timeframe)</h2>
+          </div>
+          <span id="uploadCountBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">0 / 3 រូបភាព</span>
+        </div>
+        <p class="text-xs text-slate-400 mb-4">
+          បញ្ចូល Screenshot ពី MT4/MT5 ឬ TradingView (ណែនាំ ៣ Timeframe៖ H4, H1, M15 ដើម្បីឱ្យ AI ផ្ទៀងផ្ទាត់និន្នាការធំ និងចំណុចចូលតូច)។
+        </p>
+
+        <!-- 3 Timeframe Upload Slots -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <!-- Slot H4 -->
+          <div class="tf-slot relative rounded-xl border-2 border-dashed border-slate-700 bg-slate-950/60 p-3 flex flex-col items-center justify-center text-center min-h-[168px] transition hover:border-slate-500" data-slot="H4">
+            <input type="file" accept="image/*" class="hidden slot-input" id="input-H4" />
+            <div class="slot-empty flex flex-col items-center gap-2 cursor-pointer" data-trigger="H4">
+              <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-sky-400">
+                <i data-lucide="image-plus" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-slate-200">H4 (និន្នាការធំ)</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">ចុច ឬអូសរូបដាក់ទីនេះ</p>
+              </div>
+            </div>
+            <div class="slot-preview hidden w-full h-full flex-col items-center">
+              <div class="relative w-full h-28 rounded-lg overflow-hidden bg-slate-900 border border-slate-700">
+                <img src="" alt="H4 preview" class="w-full h-full object-cover preview-img" />
+                <button type="button" class="remove-img absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-slate-950/80 hover:bg-rose-600 text-white flex items-center justify-center transition cursor-pointer" data-remove="H4" title="លុបរូបភាព">
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+              <span class="mt-2 text-[11px] font-medium text-emerald-400 flex items-center gap-1">
+                <i data-lucide="check-circle-2" class="w-3 h-3"></i> H4 រួចរាល់
+              </span>
+            </div>
+          </div>
+
+          <!-- Slot H1 -->
+          <div class="tf-slot relative rounded-xl border-2 border-dashed border-slate-700 bg-slate-950/60 p-3 flex flex-col items-center justify-center text-center min-h-[168px] transition hover:border-slate-500" data-slot="H1">
+            <input type="file" accept="image/*" class="hidden slot-input" id="input-H1" />
+            <div class="slot-empty flex flex-col items-center gap-2 cursor-pointer" data-trigger="H1">
+              <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-sky-400">
+                <i data-lucide="image-plus" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-slate-200">H1 (រចនាសម្ព័ន្ធ)</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">ចុច ឬអូសរូបដាក់ទីនេះ</p>
+              </div>
+            </div>
+            <div class="slot-preview hidden w-full h-full flex-col items-center">
+              <div class="relative w-full h-28 rounded-lg overflow-hidden bg-slate-900 border border-slate-700">
+                <img src="" alt="H1 preview" class="w-full h-full object-cover preview-img" />
+                <button type="button" class="remove-img absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-slate-950/80 hover:bg-rose-600 text-white flex items-center justify-center transition cursor-pointer" data-remove="H1" title="លុបរូបភាព">
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+              <span class="mt-2 text-[11px] font-medium text-emerald-400 flex items-center gap-1">
+                <i data-lucide="check-circle-2" class="w-3 h-3"></i> H1 រួចរាល់
+              </span>
+            </div>
+          </div>
+
+          <!-- Slot M15 -->
+          <div class="tf-slot relative rounded-xl border-2 border-dashed border-slate-700 bg-slate-950/60 p-3 flex flex-col items-center justify-center text-center min-h-[168px] transition hover:border-slate-500" data-slot="M15">
+            <input type="file" accept="image/*" class="hidden slot-input" id="input-M15" />
+            <div class="slot-empty flex flex-col items-center gap-2 cursor-pointer" data-trigger="M15">
+              <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-sky-400">
+                <i data-lucide="image-plus" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-slate-200">M15 (ចំណុចចូល)</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">ចុច ឬអូសរូបដាក់ទីនេះ</p>
+              </div>
+            </div>
+            <div class="slot-preview hidden w-full h-full flex-col items-center">
+              <div class="relative w-full h-28 rounded-lg overflow-hidden bg-slate-900 border border-slate-700">
+                <img src="" alt="M15 preview" class="w-full h-full object-cover preview-img" />
+                <button type="button" class="remove-img absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-slate-950/80 hover:bg-rose-600 text-white flex items-center justify-center transition cursor-pointer" data-remove="M15" title="លុបរូបភាព">
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+              <span class="mt-2 text-[11px] font-medium text-emerald-400 flex items-center gap-1">
+                <i data-lucide="check-circle-2" class="w-3 h-3"></i> M15 រួចរាល់
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 2: BBMA System Prompt -->
+      <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-sky-500/15 text-sky-400 text-xs font-bold flex items-center justify-center border border-sky-500/30">2</span>
+            <h2 class="text-sm sm:text-base font-semibold text-white">System Prompt (រូបមន្ត BBMA)</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btnCopyPrompt" type="button" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>ចម្លង Prompt</span>
+            </button>
+            <button id="btnResetPrompt" type="button" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800/60 hover:bg-slate-800 text-slate-400 border border-slate-700/70 transition cursor-pointer">
+              <span>លំនាំដើម</span>
+            </button>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mb-3">
+          នេះជាច្បាប់ដែល AI ត្រូវប្រកាន់ខ្ជាប់ពេលមើលរូបភាព។ អ្នកអាចកែប្រែបន្ថែម ឬចម្លងយកទៅប្រើក្នុង ChatGPT / Gemini / API ផ្ទាល់បាន។
+        </p>
+        <textarea id="systemPromptInput" rows="10" class="w-full rounded-xl bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 text-xs sm:text-sm text-slate-200 p-3.5 leading-relaxed font-mono outline-none resize-y"></textarea>
+      </section>
+
+      <!-- Step 3: Execution Mode (Simulator vs Live Gemini API) -->
+      <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-sky-500/15 text-sky-400 text-xs font-bold flex items-center justify-center border border-sky-500/30">3</span>
+            <h2 class="text-sm sm:text-base font-semibold text-white">របៀបដំណើរការវិភាគ</h2>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4">
+          <button id="modeDemoBtn" type="button" class="mode-tab flex items-center gap-2.5 p-3 rounded-xl border border-sky-500 bg-sky-500/10 text-left transition cursor-pointer">
+            <i data-lucide="cpu" class="w-4 h-4 text-sky-400 shrink-0"></i>
+            <div>
+              <div class="text-xs font-semibold text-white">សាកល្បងក្នុងកម្មវិធី (Demo Mode)</div>
+              <div class="text-[11px] text-slate-400">មិនត្រូវការ API Key ទេ</div>
+            </div>
+          </button>
+          <button id="modeLiveBtn" type="button" class="mode-tab flex items-center gap-2.5 p-3 rounded-xl border border-slate-700 bg-slate-950/60 hover:border-slate-600 text-left transition cursor-pointer">
+            <i data-lucide="zap" class="w-4 h-4 text-amber-400 shrink-0"></i>
+            <div>
+              <div class="text-xs font-semibold text-white">ភ្ជាប់ Gemini Vision API ផ្ទាល់</div>
+              <div class="text-[11px] text-slate-400">ប្រើ API Key របស់អ្នកផ្ទាល់</div>
+            </div>
+          </button>
+        </div>
+
+        <!-- Live API Key Box (hidden by default) -->
+        <div id="liveApiBox" class="hidden mb-4 p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <label for="geminiApiKey" class="text-xs font-medium text-slate-300">Gemini API Key (រក្សាទុកតែក្នុង Browser អ្នកប៉ុណ្ណោះ)</label>
+            <span class="text-[11px] text-slate-500">Model: gemini-2.5-flash</span>
+          </div>
+          <div class="flex gap-2">
+            <input id="geminiApiKey" type="password" placeholder="AIzaSy..." class="flex-1 rounded-lg bg-slate-900 border border-slate-700 focus:border-sky-500 px-3 py-2 text-xs text-slate-100 outline-none" />
+            <button id="btnToggleKey" type="button" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700 cursor-pointer">
+              <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-500">
+            ពេលចុចវិភាគ Browser នឹងផ្ញើរូបភាព Screenshot + BBMA System Prompt ទៅកាន់ Google Gemini API ដោយផ្ទាល់។
+          </p>
+        </div>
+
+        <!-- Optional Note / Pair Override -->
+        <div class="mb-4">
+          <label for="userNoteInput" class="block text-xs font-medium text-slate-400 mb-1.5">បញ្ជាក់បន្ថែម (ស្រេចចិត្ត — ឧ. គូប្រាក់ ឬសំណួរបន្ថែម)</label>
+          <input id="userNoteInput" type="text" placeholder="ឧទាហរណ៍៖ XAUUSD.r កំពុងចង់រកចំណុច Re-entry Sell លើ M15" class="w-full rounded-xl bg-slate-950 border border-slate-800 focus:border-sky-500 px-3.5 py-2.5 text-xs text-slate-100 outline-none" />
+        </div>
+
+        <!-- Analyze CTA -->
+        <button id="btnAnalyze" type="button" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-semibold text-sm shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+          <i data-lucide="scan-search" class="w-4 h-4"></i>
+          <span id="btnAnalyzeText">វិភាគក្រាហ្វតាម BBMA ឥឡូវនេះ</span>
+        </button>
+      </section>
+    </div>
+
+    <!-- Right Column: Analysis Output + Risk Calculator -->
+    <div class="lg:col-span-5 space-y-5">
+
+      <!-- Result Card -->
+      <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div class="flex items-center justify-between gap-2 mb-4">
+          <div class="flex items-center gap-2">
+            <i data-lucide="bot" class="w-5 h-5 text-sky-400"></i>
+            <h2 class="text-sm sm:text-base font-semibold text-white">លទ្ធផលវិភាគរបស់ AI Bot</h2>
+          </div>
+          <span id="statusBadge" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">រង់ចាំការវិភាគ</span>
+        </div>
+
+        <!-- Empty State -->
+        <div id="resultEmpty" class="py-10 text-center space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700 mx-auto flex items-center justify-center text-slate-400">
+            <i data-lucide="line-chart" class="w-6 h-6"></i>
+          </div>
+          <div class="max-w-xs mx-auto space-y-1">
+            <p class="text-sm font-medium text-slate-200">មិនទាន់មានការវិភាគទេ</p>
+            <p class="text-xs text-slate-400">សូម Upload រូបភាព Screenshot (ឬចុច «ផ្ទុកឧទាហរណ៍គំរូ») រួចចុចប៊ូតុងវិភាគ។</p>
+          </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="resultLoading" class="hidden py-12 text-center space-y-3">
+          <div class="w-10 h-10 border-2 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p class="text-xs text-sky-300 font-medium">AI កំពុងស្កេនទៀន BBMA, EMA 50 និង MA 5/10...</p>
+        </div>
+
+        <!-- Structured Result Content (Demo / Parsed) -->
+        <div id="resultStructured" class="hidden space-y-4">
+          <!-- Signal Header -->
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3">
+            <div>
+              <div class="text-[11px] text-slate-400">គូប្រាក់ និង Setup</div>
+              <div id="resPairSetup" class="text-sm font-bold text-white mt-0.5">XAUUSD.r — Re-entry Sell</div>
+            </div>
+            <span id="resDirectionBadge" class="px-3 py-1 rounded-lg text-xs font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+              SELL LIMIT / WAIT
+            </span>
+          </div>
+
+          <!-- Entry / SL / TP Grid -->
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+              <div class="text-[11px] text-slate-400">តម្លៃចូល (Entry Zone)</div>
+              <div id="resEntry" class="text-sm font-bold text-sky-400 mt-0.5">3548.00 – 3555.00</div>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+              <div class="text-[11px] text-slate-400">Stop Loss (SL)</div>
+              <div id="resSL" class="text-sm font-bold text-rose-400 mt-0.5">3575.00</div>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+              <div class="text-[11px] text-slate-400">Take Profit 1 (TP1)</div>
+              <div id="resTP1" class="text-sm font-bold text-emerald-400 mt-0.5">3525.00</div>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+              <div class="text-[11px] text-slate-400">Take Profit 2 (TP2)</div>
+              <div id="resTP2" class="text-sm font-bold text-emerald-400 mt-0.5">3508.00</div>
+            </div>
+          </div>
+
+          <!-- MTF Breakdown -->
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <div class="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+              <i data-lucide="layers" class="w-3.5 h-3.5 text-sky-400"></i>
+              <span>ការផ្ទៀងផ្ទាត់ Multi-Timeframe (BBMA)</span>
+            </div>
+            <ul id="resChecklist" class="space-y-1.5 text-xs text-slate-300"></ul>
+          </div>
+
+          <!-- Disclaimer -->
+          <button id="btnSendToTelegram" type="button" class="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition cursor-pointer">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            <span>ផ្ញើតម្លៃ Entry / SL / TP ទៅ Telegram Bot</span>
+          </button>
+          <p class="text-[11px] text-slate-500 leading-relaxed">
+            * ចំណាំ៖ ការវិភាគពី Screenshot អាចមានគម្លាតតម្លៃបន្តិចបន្តួចពីខ្សែ MA/BB ពិត។ សូមផ្ទៀងផ្ទាត់តម្លៃលើ MT4/MT5 មុនដាក់ Order។
+          </p>
+        </div>
+
+        <!-- Raw Live AI Text Output (when using Gemini API) -->
+        <div id="resultLiveRaw" class="hidden space-y-3">
+          <div id="liveMarkdownBox" class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs sm:text-sm text-slate-200 whitespace-pre-wrap leading-relaxed max-h-[420px] overflow-y-auto"></div>
+          <button id="btnSendLiveToTelegram" type="button" class="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition cursor-pointer">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            <span>ផ្ញើលទ្ធផលវិភាគទៅ Telegram Bot</span>
+          </button>
+        </div>
+
+        <!-- Error Box -->
+        <div id="resultError" class="hidden p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 space-y-1">
+          <div class="font-semibold flex items-center gap-1.5">
+            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+            <span>មានបញ្ហាក្នុងការហៅ API</span>
+          </div>
+          <p id="errorMessage" class="text-rose-200/90"></p>
+        </div>
+      </section>
+
+      <!-- Mini Risk & Lot Size Calculator -->
+      <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div class="flex items-center gap-2 mb-3">
+          <i data-lucide="calculator" class="w-4 h-4 text-emerald-400"></i>
+          <h3 class="text-sm font-semibold text-white">គណនា Lot Size និង Risk:Reward</h3>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label for="calcBalance" class="block text-[11px] text-slate-400 mb-1">ដើមទុនគណនី ($)</label>
+            <input id="calcBalance" type="number" value="1000" min="10" step="50" class="w-full rounded-lg bg-slate-950 border border-slate-800 focus:border-sky-500 px-3 py-1.5 text-xs text-white outline-none" />
+          </div>
+          <div>
+            <label for="calcRiskPct" class="block text-[11px] text-slate-400 mb-1">ហានិភ័យ (%)</label>
+            <input id="calcRiskPct" type="number" value="1" min="0.1" max="10" step="0.5" class="w-full rounded-lg bg-slate-950 border border-slate-800 focus:border-sky-500 px-3 py-1.5 text-xs text-white outline-none" />
+          </div>
+          <div>
+            <label for="calcEntry" class="block text-[11px] text-slate-400 mb-1">តម្លៃ Entry</label>
+            <input id="calcEntry" type="number" value="3550" step="0.1" class="w-full rounded-lg bg-slate-950 border border-slate-800 focus:border-sky-500 px-3 py-1.5 text-xs text-white outline-none" />
+          </div>
+          <div>
+            <label for="calcSL" class="block text-[11px] text-slate-400 mb-1">តម្លៃ Stop Loss</label>
+            <input id="calcSL" type="number" value="3575" step="0.1" class="w-full rounded-lg bg-slate-950 border border-slate-800 focus:border-sky-500 px-3 py-1.5 text-xs text-white outline-none" />
+          </div>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
+          <div>
+            <span class="text-slate-400">ហានិភ័យអតិបរមា៖ </span>
+            <strong id="calcRiskDollar" class="text-rose-400">$10.00</strong>
+          </div>
+          <div>
+            <span class="text-slate-400">Lot ណែនាំ (XAUUSD)៖ </span>
+            <strong id="calcLotSize" class="text-emerald-400">0.01 lot</strong>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script>
+    const DEFAULT_BBMA_PROMPT = `អ្នកគឺជាអ្នកជំនាញវិភាគទីផ្សារ Forex និងមាស (XAUUSD) ដោយប្រើប្រព័ន្ធ BBMA Oma Ally យ៉ាងតឹងរ៉ឹង។
+សូមពិនិត្យរូបភាព Screenshot ទាំងអស់ (H4, H1, M15) ដែលបានផ្តល់ឱ្យ ហើយវិភាគតាមលំដាប់ខាងក្រោម៖
+
+1. ស្វែងរកទិសដៅធំ (Trend Filter):
+   - មើលទីតាំងតម្លៃធៀបនឹង EMA 50 (ខ្សែបៃតង) និង Mid BB លើ H4 និង H1។
+   - បើតម្លៃនៅក្រោម EMA 50 និង Mid BB = និន្នាការចុះ (ផ្តោតលើ Sell)។
+   - បើតម្លៃនៅលើ EMA 50 និង Mid BB = និន្នាការឡើង (ផ្តោតលើ Buy)។
+
+2. កំណត់សញ្ញា BBMA លើ Timeframe នីមួយៗ:
+   - Extreme: MA 5/10 ចេញក្រៅ Top/Low BB + មាន Reversal Candle។
+   - TP Wajib: តម្លៃត្រឡប់មកប៉ះ Mid BB ឬ MA 5/10 ម្ខាងទៀត។
+   - MHV (Market Hilang Volume): តម្លៃមិនអាចបំបែក Top/Low BB បានទៀត។
+   - CSAK / CSM: ទៀនបិទកាត់ Mid BB (CSAK) ឬបិទក្រៅ Top/Low BB (CSM)។
+   - Re-entry: តម្លៃ Pullback មកប៉ះ MA 5/10 High (សម្រាប់ Sell) ឬ MA 5/10 Low (សម្រាប់ Buy) បន្ទាប់ពីមាន CSM/CSAK។
+
+3. លទ្ធផលដែលត្រូវបង្ហាញ (ជាភាសាខ្មែរ):
+   - គូប្រាក់ និង Timeframe ដែលបានឃើញ
+   - ទិសដៅណែនាំ: BUY / SELL / WAIT (បើតម្លៃកំពុងប៉ះ Low/Top BB ហាមចូលដេញ)
+   - តំបន់ Entry Zone (ប៉ាន់ស្មានពី MA 5/10 ឬ Mid BB)
+   - Stop Loss (SL) និង Take Profit (TP1, TP2)
+   - ហេតុផលសង្ខេបតាម MTF (H4 -> H1 -> M15)`;
+
+    const state = {
+      images: { H4: null, H1: null, M15: null },
+      mode: 'demo',
+      isDemoLoaded: false
+    };
+
+    const promptInput = document.getElementById('systemPromptInput');
+    const uploadCountBadge = document.getElementById('uploadCountBadge');
+    const modeDemoBtn = document.getElementById('modeDemoBtn');
+    const modeLiveBtn = document.getElementById('modeLiveBtn');
+    const liveApiBox = document.getElementById('liveApiBox');
+    const geminiApiKeyInput = document.getElementById('geminiApiKey');
+    const btnToggleKey = document.getElementById('btnToggleKey');
+    const btnAnalyze = document.getElementById('btnAnalyze');
+    const statusBadge = document.getElementById('statusBadge');
+
+    const resultEmpty = document.getElementById('resultEmpty');
+    const resultLoading = document.getElementById('resultLoading');
+    const resultStructured = document.getElementById('resultStructured');
+    const resultLiveRaw = document.getElementById('resultLiveRaw');
+    const resultError = document.getElementById('resultError');
+    const errorMessage = document.getElementById('errorMessage');
+    const liveMarkdownBox = document.getElementById('liveMarkdownBox');
+
+    promptInput.value = DEFAULT_BBMA_PROMPT;
+    try {
+      const savedKey = localStorage.getItem('bbma_demo_gemini_key');
+      if (savedKey) geminiApiKeyInput.value = savedKey;
+    } catch (_) {}
+
+    lucide.createIcons();
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastText').textContent = msg;
+      toast.classList.remove('hidden');
+      toast.classList.add('flex');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('hidden');
+        toast.classList.remove('flex');
+      }, 2800);
+    }
+
+    function updateUploadCount() {
+      const count = Object.values(state.images).filter(Boolean).length;
+      uploadCountBadge.textContent = `${count} / 3 រូបភាព`;
+      uploadCountBadge.className = count > 0
+        ? 'text-xs px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30'
+        : 'text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700';
+    }
+
+    function setSlotImage(slot, dataUrl, mimeType = 'image/png') {
+      const base64 = dataUrl.split(',')[1] || '';
+      state.images[slot] = { dataUrl, mimeType, base64 };
+      const container = document.querySelector(`.tf-slot[data-slot="${slot}"]`);
+      container.querySelector('.slot-empty').classList.add('hidden');
+      const prev = container.querySelector('.slot-preview');
+      prev.classList.remove('hidden');
+      prev.classList.add('flex');
+      prev.querySelector('.preview-img').src = dataUrl;
+      updateUploadCount();
+    }
+
+    function clearSlotImage(slot) {
+      state.images[slot] = null;
+      const container = document.querySelector(`.tf-slot[data-slot="${slot}"]`);
+      container.querySelector('.slot-empty').classList.remove('hidden');
+      const prev = container.querySelector('.slot-preview');
+      prev.classList.add('hidden');
+      prev.classList.remove('flex');
+      prev.querySelector('.preview-img').src = '';
+      document.getElementById(`input-${slot}`).value = '';
+      updateUploadCount();
+    }
+
+    function handleFile(slot, file) {
+      if (!file || !file.type.startsWith('image/')) {
+        showToast('សូមជ្រើសរើសឯកសាររូបភាព (PNG, JPG, WebP)។');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        state.isDemoLoaded = false;
+        setSlotImage(slot, e.target.result, file.type);
+        showToast(`បានបញ្ចូលរូបភាព ${slot} រួចរាល់`);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    ['H4', 'H1', 'M15'].forEach((slot) => {
+      const box = document.querySelector(`.tf-slot[data-slot="${slot}"]`);
+      const input = document.getElementById(`input-${slot}`);
+      const trigger = box.querySelector(`[data-trigger="${slot}"]`);
+      const removeBtn = box.querySelector(`[data-remove="${slot}"]`);
+
+      trigger.addEventListener('click', () => input.click());
+      input.addEventListener('change', (e) => {
+        if (e.target.files[0]) handleFile(slot, e.target.files[0]);
+      });
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearSlotImage(slot);
+      });
+
+      box.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        box.classList.add('drop-zone-active');
+      });
+      box.addEventListener('dragleave', () => box.classList.remove('drop-zone-active'));
+      box.addEventListener('drop', (e) => {
+        e.preventDefault();
+        box.classList.remove('drop-zone-active');
+        if (e.dataTransfer.files[0]) handleFile(slot, e.dataTransfer.files[0]);
+      });
+    });
+
+    function createDemoChartDataUrl(tf, subtitle, candles) {
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="400" height="240" viewBox="0 0 400 240">
+          <rect width="400" height="240" fill="#ffffff"/>
+          <text x="16" y="26" font-family="sans-serif" font-size="14" font-weight="bold" fill="#0f172a">XAUUSD.r • ${tf}</text>
+          <text x="16" y="44" font-family="sans-serif" font-size="11" fill="#64748b">${subtitle}</text>
+          <path d="M 10 70 Q 180 95, 380 130" stroke="#4ade80" stroke-width="2" fill="none"/>
+          <path d="M 10 60 Q 180 100, 380 145" stroke="#ef4444" stroke-width="1.5" fill="none"/>
+          <path d="M 10 130 Q 180 175, 380 215" stroke="#ef4444" stroke-width="1.5" fill="none"/>
+          <path d="M 10 95 Q 180 138, 380 180" stroke="#f87171" stroke-width="1.2" stroke-dasharray="4 3" fill="none"/>
+          ${candles}
+          <rect x="322" y="182" width="70" height="22" rx="4" fill="#0d9488"/>
+          <text x="330" y="197" font-family="monospace" font-size="11" font-weight="bold" fill="#ffffff">3541.28</text>
+        </svg>`;
+      return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+    }
+
+    document.getElementById('btnLoadDemo').addEventListener('click', () => {
+      const cH4 = `<rect x="60" y="85" width="10" height="28" fill="#ef4444"/><rect x="110" y="105" width="10" height="32" fill="#ef4444"/><rect x="160" y="128" width="10" height="26" fill="#ef4444"/><rect x="220" y="148" width="10" height="28" fill="#ef4444"/><rect x="290" y="168" width="10" height="24" fill="#10b981"/>`;
+      const cH1 = `<rect x="60" y="92" width="10" height="25" fill="#ef4444"/><rect x="130" y="122" width="10" height="30" fill="#ef4444"/><rect x="200" y="142" width="10" height="18" fill="#10b981"/><rect x="260" y="145" width="10" height="26" fill="#ef4444"/><rect x="305" y="172" width="10" height="22" fill="#ef4444"/>`;
+      const cM15 = `<rect x="70" y="130" width="10" height="22" fill="#10b981"/><rect x="130" y="110" width="10" height="24" fill="#ef4444"/><rect x="190" y="135" width="10" height="28" fill="#ef4444"/><rect x="255" y="160" width="10" height="22" fill="#ef4444"/><rect x="300" y="178" width="10" height="14" fill="#ef4444"/>`;
+
+      setSlotImage('H4', createDemoChartDataUrl('H4', 'Downtrend • Below EMA 50', cH4), 'image/svg+xml');
+      setSlotImage('H1', createDemoChartDataUrl('H1', 'CSM Sell • Below Mid BB', cH1), 'image/svg+xml');
+      setSlotImage('M15', createDemoChartDataUrl('M15', 'Near Low BB • Wait Re-entry', cM15), 'image/svg+xml');
+      state.isDemoLoaded = true;
+      document.getElementById('userNoteInput').value = 'XAUUSD.r តម្លៃបច្ចុប្បន្ន ~3541 រកចំណុច Re-entry Sell';
+      showToast('បានផ្ទុកក្រាហ្វគំរូ XAUUSD.r (H4/H1/M15) រួចរាល់');
+    });
+
+    document.getElementById('btnResetAll').addEventListener('click', () => {
+      ['H4', 'H1', 'M15'].forEach(clearSlotImage);
+      state.isDemoLoaded = false;
+      document.getElementById('userNoteInput').value = '';
+      showResultPanel('empty');
+      statusBadge.textContent = 'រង់ចាំការវិភាគ';
+      statusBadge.className = 'text-[11px] px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700';
+      showToast('បានសម្អាតទិន្នន័យរួចរាល់');
+    });
+
+    document.getElementById('btnCopyPrompt').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(promptInput.value);
+      } catch (_) {
+        promptInput.select();
+        document.execCommand('copy');
+      }
+      showToast('បានចម្លង BBMA System Prompt រួចរាល់');
+    });
+
+    document.getElementById('btnResetPrompt').addEventListener('click', () => {
+      promptInput.value = DEFAULT_BBMA_PROMPT;
+      showToast('បានត្រឡប់ System Prompt ទៅលំនាំដើម');
+    });
+
+    function setMode(mode) {
+      state.mode = mode;
+      if (mode === 'demo') {
+        modeDemoBtn.className = 'mode-tab flex items-center gap-2.5 p-3 rounded-xl border border-sky-500 bg-sky-500/10 text-left transition cursor-pointer';
+        modeLiveBtn.className = 'mode-tab flex items-center gap-2.5 p-3 rounded-xl border border-slate-700 bg-slate-950/60 hover:border-slate-600 text-left transition cursor-pointer';
+        liveApiBox.classList.add('hidden');
+      } else {
+        modeLiveBtn.className = 'mode-tab flex items-center gap-2.5 p-3 rounded-xl border border-amber-500 bg-amber-500/10 text-left transition cursor-pointer';
+        modeDemoBtn.className = 'mode-tab flex items-center gap-2.5 p-3 rounded-xl border border-slate-700 bg-slate-950/60 hover:border-slate-600 text-left transition cursor-pointer';
+        liveApiBox.classList.remove('hidden');
+      }
+    }
+    modeDemoBtn.addEventListener('click', () => setMode('demo'));
+    modeLiveBtn.addEventListener('click', () => setMode('live'));
+
+    btnToggleKey.addEventListener('click', () => {
+      geminiApiKeyInput.type = geminiApiKeyInput.type === 'password' ? 'text' : 'password';
+    });
+
+    geminiApiKeyInput.addEventListener('input', () => {
+      try {
+        localStorage.setItem('bbma_demo_gemini_key', geminiApiKeyInput.value.trim());
+      } catch (_) {}
+    });
+
+    function showResultPanel(which) {
+      [resultEmpty, resultLoading, resultStructured, resultLiveRaw, resultError].forEach((el) => el.classList.add('hidden'));
+      if (which === 'empty') resultEmpty.classList.remove('hidden');
+      if (which === 'loading') resultLoading.classList.remove('hidden');
+      if (which === 'structured') resultStructured.classList.remove('hidden');
+      if (which === 'live') resultLiveRaw.classList.remove('hidden');
+      if (which === 'error') resultError.classList.remove('hidden');
+    }
+
+    btnAnalyze.addEventListener('click', async () => {
+      const uploadedSlots = Object.entries(state.images).filter(([, val]) => val !== null);
+      if (uploadedSlots.length === 0) {
+        showToast('សូម Upload រូបភាពយ៉ាងហោចណាស់ ១ សន្លឹក ឬចុច «ផ្ទុកឧទាហរណ៍គំរូ»');
+        return;
+      }
+
+      btnAnalyze.disabled = true;
+      showResultPanel('loading');
+      statusBadge.textContent = 'កំពុងវិភាគ...';
+      statusBadge.className = 'text-[11px] px-2.5 py-1 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30';
+
+      if (state.mode === 'demo') {
+        setTimeout(() => {
+          renderDemoAnalysis(uploadedSlots.map(([tf]) => tf));
+          btnAnalyze.disabled = false;
+        }, 700);
+        return;
+      }
+
+      const apiKey = geminiApiKeyInput.value.trim();
+      if (!apiKey) {
+        btnAnalyze.disabled = false;
+        showResultPanel('error');
+        errorMessage.textContent = 'សូមបញ្ចូល Gemini API Key របស់អ្នកជាមុន ឬប្តូរទៅប្រើ Demo Mode។';
+        statusBadge.textContent = 'ខ្វះ API Key';
+        statusBadge.className = 'text-[11px] px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30';
+        return;
+      }
+
+      try {
+        const parts = [];
+        const note = document.getElementById('userNoteInput').value.trim();
+        parts.push({
+          text: `${promptInput.value}\n\nសំណើបន្ថែមពីអ្នកប្រើប្រាស់៖ ${note || 'សូមវិភាគរូបភាពក្រាហ្វទាំងនេះតាមក្បួន BBMA។'}`
+        });
+
+        for (const [tf, imgObj] of uploadedSlots) {
+          if (imgObj.mimeType === 'image/svg+xml') {
+            throw new Error('រូបភាពគំរូ Demo (SVG) សម្រាប់ប្រើក្នុង Demo Mode ប៉ុណ្ណោះ។ សូម Upload រូបភាព PNG/JPG ពិតសម្រាប់ Gemini API។');
+          }
+          parts.push({ text: `រូបភាព Timeframe: ${tf}` });
+          parts.push({
+            inline_data: {
+              mime_type: imgObj.mimeType,
+              data: imgObj.base64
+            }
+          });
+        }
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts }]
+          })
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data?.error?.message || `HTTP ${resp.status}`);
+        }
+
+        const textOut = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('\n') || 'មិនមានទិន្នន័យតបពី API ទេ។';
+        liveMarkdownBox.textContent = textOut;
+        showResultPanel('live');
+        statusBadge.textContent = 'វិភាគផ្ទាល់ជោគជ័យ';
+        statusBadge.className = 'text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+      } catch (err) {
+        showResultPanel('error');
+        errorMessage.textContent = err.message || 'បរាជ័យក្នុងការភ្ជាប់ទៅ Gemini API។';
+        statusBadge.textContent = 'មានបញ្ហា';
+        statusBadge.className = 'text-[11px] px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30';
+      } finally {
+        btnAnalyze.disabled = false;
+      }
+    });
+
+    function renderDemoAnalysis(tfs) {
+      const note = document.getElementById('userNoteInput').value.trim();
+      document.getElementById('resPairSetup').textContent = note ? `${note.slice(0, 28)} — Re-entry Sell` : 'XAUUSD.r — Re-entry Sell (Demo)';
+      document.getElementById('resDirectionBadge').textContent = 'WAIT / SELL LIMIT';
+      document.getElementById('resEntry').textContent = '3548.00 – 3558.00';
+      document.getElementById('resSL').textContent = '3575.00';
+      document.getElementById('resTP1').textContent = '3525.00';
+      document.getElementById('resTP2').textContent = '3508.00';
+
+      const items = [];
+      if (tfs.includes('H4')) items.push('• H4: តម្លៃនៅក្រោម EMA 50 និង Mid BB បញ្ជាក់និន្នាការចុះ (Downtrend)។');
+      if (tfs.includes('H1')) items.push('• H1: មាន Momentum Sell (CSM) ច្បាស់លាស់ តម្លៃកំពុងរុញចុះក្រោម។');
+      if (tfs.includes('M15')) items.push('• M15: តម្លៃនៅជិត Low BB (~3541) — រង់ចាំ Pullback ទៅ MA 5/10 High (3548–3552) ឬ Mid BB (3558) មុន Sell។');
+      if (items.length === 0) items.push('• បានផ្ទៀងផ្ទាត់រូបភាពដែលបាន Upload តាមលក្ខខណ្ឌ BBMA។');
+
+      const ul = document.getElementById('resChecklist');
+      ul.innerHTML = items.map((t) => `<li>${t}</li>`).join('');
+
+      document.getElementById('calcEntry').value = '3550';
+      document.getElementById('calcSL').value = '3575';
+      updateRiskCalc();
+
+      showResultPanel('structured');
+      statusBadge.textContent = 'Demo រួចរាល់';
+      statusBadge.className = 'text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+    }
+
+    function updateRiskCalc() {
+      const bal = parseFloat(document.getElementById('calcBalance').value) || 0;
+      const riskPct = parseFloat(document.getElementById('calcRiskPct').value) || 0;
+      const entry = parseFloat(document.getElementById('calcEntry').value) || 0;
+      const sl = parseFloat(document.getElementById('calcSL').value) || 0;
+
+      const riskDollar = bal * (riskPct / 100);
+      const slDistance = Math.abs(entry - sl);
+      document.getElementById('calcRiskDollar').textContent = `$${riskDollar.toFixed(2)}`;
+
+      if (slDistance > 0 && riskDollar > 0) {
+        const rawLot = riskDollar / (slDistance * 100);
+        const lot = Math.max(0.01, Math.floor(rawLot * 100) / 100);
+        document.getElementById('calcLotSize').textContent = `${lot.toFixed(2)} lot`;
+      } else {
+        document.getElementById('calcLotSize').textContent = '0.00 lot';
+      }
+    }
+
+    ['calcBalance', 'calcRiskPct', 'calcEntry', 'calcSL'].forEach((id) => {
+      document.getElementById(id).addEventListener('input', updateRiskCalc);
+    });
+    updateRiskCalc();
+
+    // Telegram Mini App SDK Integration
+    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    const tgStatusBadge = document.getElementById('tgStatusBadge');
+    const tgStatusText = document.getElementById('tgStatusText');
+
+    if (tg && tg.initData) {
+      tg.ready();
+      tg.expand();
+      const firstName = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.first_name : 'Telegram';
+      tgStatusText.textContent = `Mini App • ${firstName}`;
+      tgStatusBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-sky-500/15 text-sky-300 border border-sky-500/30';
+    }
+
+    function sendPayloadToTelegram(payload) {
+      if (tg && tg.initData) {
+        tg.sendData(JSON.stringify(payload));
+        showToast('បានផ្ញើទិន្នន័យទៅ Telegram Bot រួចរាល់');
+      } else {
+        showToast('មុខងារនេះដំណើរការពេលបើក Web App នៅក្នុង Telegram Mini App (តាម Bot Button)។');
+      }
+    }
+
+    document.getElementById('btnSendToTelegram').addEventListener('click', () => {
+      sendPayloadToTelegram({
+        source: 'bbma_mini_app',
+        mode: 'structured',
+        setup: document.getElementById('resPairSetup').textContent,
+        direction: document.getElementById('resDirectionBadge').textContent.trim(),
+        entry: document.getElementById('resEntry').textContent,
+        sl: document.getElementById('resSL').textContent,
+        tp1: document.getElementById('resTP1').textContent,
+        tp2: document.getElementById('resTP2').textContent,
+        lot: document.getElementById('calcLotSize').textContent
+      });
+    });
+
+    document.getElementById('btnSendLiveToTelegram').addEventListener('click', () => {
+      sendPayloadToTelegram({
+        source: 'bbma_mini_app',
+        mode: 'live_ai',
+        analysis: liveMarkdownBox.textContent.slice(0, 3500)
+      });
+    });
+  </script>
+</body>
+</html>
